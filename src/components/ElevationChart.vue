@@ -165,9 +165,13 @@ type HistogramTick = {
 const histogramMaxY = computed(() => {
   const list = buckets.value
   if (!list || !list.length) return 0
+
   const maxPercent = Math.max(...list.map((b) => b.percentage), 0)
-  const base = Math.max(10, maxPercent)
-  return Math.ceil(base / 10) * 10
+
+  const step = 5
+  const base = Math.max(step, maxPercent)
+
+  return Math.ceil(base / step) * step
 })
 
 const histogramBars = computed<HistogramBar[]>(() => {
@@ -179,12 +183,13 @@ const histogramBars = computed<HistogramBar[]>(() => {
 
   const maxY = histogramMaxY.value || 1
   const baseBarWidth = innerWidth / list.length
+  const barWidth = 50
 
   return list.map((bucket, index) => {
     const barHeight = (bucket.percentage / maxY) * innerHeight
-    const x = histogramPaddingLeft + index * baseBarWidth
+    const slotX = histogramPaddingLeft + index * baseBarWidth
+    const x = slotX + (baseBarWidth - barWidth) / 2
     const y = histogramPaddingTop + (innerHeight - barHeight)
-    const barWidth = Math.max(baseBarWidth * 0.7, 4)
 
     return {
       ...bucket,
@@ -192,6 +197,7 @@ const histogramBars = computed<HistogramBar[]>(() => {
       y,
       barWidth,
       barHeight,
+      baseBarWidth,
     }
   })
 })
@@ -201,13 +207,13 @@ const histogramTicks = computed<HistogramTick[]>(() => {
   if (!maxY) return []
 
   const innerHeight = height - histogramPaddingTop - histogramPaddingBottom
-  const steps = 5
+  const step = 5
   const ticks: HistogramTick[] = []
 
-  for (let i = 0; i <= steps; i++) {
-    const value = (maxY / steps) * i
+  for (let value = 0; value <= maxY; value += step) {
     const ratio = value / maxY
     const y = histogramPaddingTop + (innerHeight - ratio * innerHeight)
+
     ticks.push({ value, y })
   }
 
@@ -463,11 +469,11 @@ async function exportHistogramAsPng() {
           x="50%"
           y="28"
           text-anchor="middle"
-          font-size="16"
-          fill="#111827"
-          font-weight="700"
+          font-size="18"
+          fill="#6f6f6f"
+          font-weight="600"
         >
-          Histograma de frequência altimétrica
+          Histograma de Frequência Altimétrica
         </text>
 
         <!-- Eixo Y: Frequência altimétrica (%) -->
@@ -475,9 +481,9 @@ async function exportHistogramAsPng() {
           x="18"
           y="50%"
           text-anchor="middle"
-          font-size="10"
-          font-weight="700"
-          fill="#374151"
+          font-size="16"
+          font-weight="600"
+          fill="#6f6f6f"
           :transform="`rotate(-90 18 ${height / 2})`"
         >
           Frequência altimétrica (%)
@@ -486,17 +492,17 @@ async function exportHistogramAsPng() {
         <!-- Eixo X: Intervalo de altitude (m) -->
         <text
           x="50%"
-          :y="height - 10"
+          :y="height - 12"
           text-anchor="middle"
-          font-size="10"
-          font-weight="700"
-          fill="#374151"
+          font-size="16"
+          font-weight="600"
+          fill="#6f6f6f"
         >
           Intervalo de altitude (m)
         </text>
 
         <!-- Grade e rótulos de eixo Y -->
-        <g v-if="histogramTicks.length" stroke="#9ca3af" stroke-width="1">
+        <g v-if="histogramTicks.length" stroke="#9ca3af" stroke-width="0.5">
           <line
             v-for="tick in histogramTicks"
             :key="`grid-${tick.value}`"
@@ -504,7 +510,6 @@ async function exportHistogramAsPng() {
             :x2="width - histogramPaddingRight"
             :y1="tick.y"
             :y2="tick.y"
-            stroke-dasharray="2 4"
           />
 
           <text
@@ -513,19 +518,20 @@ async function exportHistogramAsPng() {
             :x="histogramPaddingLeft - 6"
             :y="tick.y + 3"
             text-anchor="end"
-            font-size="10"
+            font-size="12"
+            font-weight="thin"
             fill="#111827"
           >
-            {{ tick.value }}%
+            {{ tick.value }}
           </text>
         </g>
 
         <!-- Barras -->
-        <g v-if="histogramBars.length" fill="#2563eb">
+        <g v-if="histogramBars.length" fill="#76a2e8">
           <rect
             v-for="bar in histogramBars"
             :key="bar.index"
-            :x="bar.x + (bar.barWidth < 4 ? 0 : (bar.barWidth * 0.15))"
+            :x="bar.x"
             :y="bar.y"
             :width="bar.barWidth"
             :height="bar.barHeight"
@@ -537,27 +543,15 @@ async function exportHistogramAsPng() {
             v-for="bar in histogramBars"
             :key="`label-${bar.index}`"
             :x="bar.x + bar.barWidth / 2"
-            :y="height - 24"
+            :y="height - 36"
             text-anchor="middle"
             font-size="12"
-            fill="#000000"
+            font-weight="600"
+            fill="#6f6f6f"
           >
             {{ Math.floor(bar.from) }}–{{ Math.ceil(bar.to) }}
           </text>
 
-          <!-- Percentual acima de cada barra -->
-          <text
-            v-for="bar in histogramBars"
-            :key="`pct-${bar.index}`"
-            :x="bar.x + bar.barWidth / 2"
-            :y="bar.y - 4"
-            text-anchor="middle"
-            font-weight="500"
-            font-size="10"
-            fill="#111827"
-          >
-            {{ bar.percentage }}%
-          </text>
         </g>
       </svg>
     </div>
