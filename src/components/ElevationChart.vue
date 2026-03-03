@@ -67,9 +67,11 @@ const svgRef = ref<SVGSVGElement | null>(null)
 const points = computed(() => {
   const series = smoothedElevations.value
   const n = series.length
-  if (!n || !stats.value) return ''
+  const currentStats = stats.value
 
-  const { max, range } = stats.value
+  if (!n || !currentStats) return ''
+
+  const { max, range } = currentStats
   const innerWidth = width - 2 * padding
   const innerHeight = height - 2 * padding
 

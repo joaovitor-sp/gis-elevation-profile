@@ -23,6 +23,12 @@ function parseElevations(raw: string): { values: number[]; errors: string[] } {
     // Se houver mais de uma coluna, pega sempre a última
     // Separadores comuns: tab, espaços, ponto-e-vírgula
     const parts = trimmed.split(/[\t;\s]+/).filter(Boolean)
+
+    if (!parts.length) {
+      parseErrors.push(`Linha ${index + 1}: nenhum valor encontrado.`)
+      return
+    }
+
     const lastToken = parts[parts.length - 1]
 
     const normalized = lastToken.replace(',', '.')
