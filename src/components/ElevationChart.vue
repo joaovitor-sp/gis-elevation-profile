@@ -58,7 +58,7 @@ const smoothedElevations = computed(() => {
 
     for (let j = i - half; j <= i + half; j++) {
       if (j >= 0 && j < n) {
-        sum += props.elevations[j]
+        sum += props.elevations[j]!
         count += 1
       }
     }
