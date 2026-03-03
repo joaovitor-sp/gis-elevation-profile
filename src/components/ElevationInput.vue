@@ -29,7 +29,12 @@ function parseElevations(raw: string): { values: number[]; errors: string[] } {
       return
     }
 
-    const lastToken = parts[parts.length - 1]
+    const lastToken = parts[parts.length - 1] ?? ''
+
+    if (!lastToken) {
+      parseErrors.push(`Linha ${index + 1}: nenhum valor numérico encontrado.`)
+      return
+    }
 
     const normalized = lastToken.replace(',', '.')
     const value = Number(normalized)

@@ -17,7 +17,14 @@ const hasData = computed(() => props.elevations.length > 0)
 
 const stats = computed(() => {
   if (!props.elevations.length) {
-    return null
+    return undefined as
+      | undefined
+      | {
+          min: number
+          max: number
+          range: number
+          count: number
+        }
   }
 
   const min = Math.min(...props.elevations)
