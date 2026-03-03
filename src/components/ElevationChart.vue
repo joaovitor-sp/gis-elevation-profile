@@ -552,6 +552,20 @@ async function exportHistogramAsPng() {
             {{ Math.floor(bar.from) }}–{{ Math.ceil(bar.to) }}
           </text>
 
+          <!-- Percentual acima de cada barra -->
+          <text
+            v-for="bar in histogramBars"
+            :key="`pct-${bar.index}`"
+            :x="bar.x + bar.barWidth / 2"
+            :y="bar.y - 4"
+            text-anchor="middle"
+            font-weight="500"
+            font-size="10"
+            fill="#111827"
+          >
+            {{ bar.percentage }}%
+          </text>
+
         </g>
       </svg>
     </div>
