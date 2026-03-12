@@ -8,7 +8,7 @@ const props = defineProps<{
 // Configuração de visualização
 const height = 380
 const padding = 40
-const width = 960
+const width = 720
 
 // Layout do histograma
 const histogramPaddingTop = 50
