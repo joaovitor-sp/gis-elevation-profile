@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
+type ProfilePoint = {
+  distanceMeters: number
+  latitudeMeters: number
+  longitudeMeters: number
+  elevationMeters: number
+}
+
 const props = defineProps<{
-  elevations: number[]
+  profilePoints: ProfilePoint[]
 }>()
 
 // Configuração de visualização
 const height = 380
-const padding = 40
+const padding = 60
 const width = 720
 
 // Layout do histograma
@@ -18,13 +25,21 @@ const histogramPaddingRight = 30
 
 const smoothEnabled = ref<boolean>(false)
 const smoothWindow = ref<number>(5)
-
 const bucketCount = ref<number>(5)
 
-const hasData = computed(() => props.elevations.length > 0)
+const hasData = computed(() => props.profilePoints.length > 0)
+
+const elevations = computed(() => {
+  return props.profilePoints.map((point) => point.elevationMeters)
+})
+
+const distances = computed(() => {
+  return props.profilePoints.map((point) => point.distanceMeters)
+})
 
 const stats = computed(() => {
-  if (!props.elevations.length) {
+  const values = elevations.value
+  if (!values.length) {
     return undefined as
       | undefined
       | {
@@ -35,27 +50,47 @@ const stats = computed(() => {
         }
   }
 
-  const min = Math.min(...props.elevations)
-  const max = Math.max(...props.elevations)
+  const min = Math.min(...values)
+  const max = Math.max(...values)
   const range = max - min || 1
 
   return {
     min,
     max,
     range,
-    count: props.elevations.length,
+    count: values.length,
   }
+})
+
+const distanceStats = computed(() => {
+  const values = distances.value
+  if (!values.length) {
+    return undefined as
+      | undefined
+      | {
+          min: number
+          max: number
+          range: number
+        }
+  }
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+
+  return { min, max, range }
 })
 
 // Gera uma versão suavizada da série usando média móvel simples
 const smoothedElevations = computed(() => {
-  const n = props.elevations.length
+  const series = elevations.value
+  const n = series.length
   if (!smoothEnabled.value || n === 0) {
-    return props.elevations
+    return series
   }
 
   const windowSize = Math.max(1, Math.min(smoothWindow.value, n))
-  if (windowSize === 1) return props.elevations
+  if (windowSize === 1) return series
 
   const half = Math.floor(windowSize / 2)
   const result: number[] = []
@@ -66,7 +101,7 @@ const smoothedElevations = computed(() => {
 
     for (let j = i - half; j <= i + half; j++) {
       if (j >= 0 && j < n) {
-        sum += props.elevations[j]!
+        sum += series[j]!
         count += 1
       }
     }
@@ -75,6 +110,106 @@ const smoothedElevations = computed(() => {
   }
 
   return result
+})
+
+type AxisTick = {
+  value: number
+  position: number
+  label: string
+}
+
+const xAxisTicks = computed<AxisTick[]>(() => {
+  const currentDistanceStats = distanceStats.value
+  if (!currentDistanceStats) return []
+
+  const innerWidth = width - 2 * padding
+  const minKm = currentDistanceStats.min / 1000
+  const maxKm = currentDistanceStats.max / 1000
+  const rangeKm = maxKm - minKm
+  const stepKm = Math.max(5, Math.ceil((rangeKm / 4 || 1) / 5) * 5)
+  let startKm = Math.floor(minKm / 5) * 5
+  let endKm = Math.ceil(maxKm / 5) * 5
+
+  if (startKm === endKm) {
+    endKm = startKm + stepKm
+  }
+
+  const axisRangeKm = endKm - startKm || 1
+  const ticks: AxisTick[] = []
+
+  for (let valueKm = startKm; valueKm <= endKm; valueKm += stepKm) {
+    const ratio = (valueKm - startKm) / axisRangeKm
+    const position = padding + ratio * innerWidth
+    const value = valueKm * 1000
+    const label = `${Math.round(valueKm)} km`
+
+    ticks.push({ value, position, label })
+  }
+
+  return ticks
+})
+
+const yAxisTicks = computed<AxisTick[]>(() => {
+  const currentStats = stats.value
+  if (!currentStats) return []
+
+  const innerHeight = height - 2 * padding
+  const stepM = Math.max(5, Math.ceil((currentStats.range / 4 || 1) / 5) * 5)
+  let minAxis = Math.floor(currentStats.min / 5) * 5
+  let maxAxis = Math.ceil(currentStats.max / 5) * 5
+
+  if (minAxis === maxAxis) {
+    maxAxis = minAxis + stepM
+  }
+
+  const axisRange = maxAxis - minAxis || 1
+  const ticks: AxisTick[] = []
+
+  for (let value = maxAxis; value >= minAxis; value -= stepM) {
+    const ratio = (maxAxis - value) / axisRange
+    const position = padding + ratio * innerHeight
+    const label = `${Math.round(value)} m`
+
+    ticks.push({ value, position, label })
+  }
+
+  return ticks
+})
+
+const profileCoordinates = computed(() => {
+  const currentStats = stats.value
+  const currentDistanceStats = distanceStats.value
+  const series = smoothedElevations.value
+  const distanceSeries = distances.value
+
+  if (!currentStats || !currentDistanceStats || !series.length) return []
+
+  const innerWidth = width - 2 * padding
+  const innerHeight = height - 2 * padding
+
+  return series.map((elevation, index) => {
+    const distance = distanceSeries[index] ?? currentDistanceStats.min
+    const xRatio = (distance - currentDistanceStats.min) / currentDistanceStats.range
+    const x = padding + xRatio * innerWidth
+    const y = padding + ((currentStats.max - elevation) / currentStats.range) * innerHeight
+
+    return { x, y }
+  })
+})
+
+const profileLinePoints = computed(() => {
+  return profileCoordinates.value.map((point) => `${point.x},${point.y}`).join(' ')
+})
+
+const profileAreaPoints = computed(() => {
+  const coords = profileCoordinates.value
+  if (!coords.length) return ''
+
+  const baselineY = height - padding
+  const firstX = coords[0]!.x
+  const lastX = coords[coords.length - 1]!.x
+
+  return `${profileLinePoints.value} ${lastX},${baselineY} ${firstX},${baselineY}`
 })
 
 const svgRef = ref<SVGSVGElement | null>(null)
@@ -90,7 +225,8 @@ type ElevationBucket = {
 
 const buckets = computed<ElevationBucket[] | null>(() => {
   const currentStats = stats.value
-  const n = props.elevations.length
+  const values = elevations.value
+  const n = values.length
   const kRaw = Math.floor(bucketCount.value)
   const k = Math.max(1, kRaw)
 
@@ -104,7 +240,6 @@ const buckets = computed<ElevationBucket[] | null>(() => {
   const intRange = end - start
 
   if (intRange <= 0) {
-    // Todos valores (praticamente) iguais: um único bucket inteiro 100%
     return [
       {
         index: 0,
@@ -116,7 +251,6 @@ const buckets = computed<ElevationBucket[] | null>(() => {
     ]
   }
 
-  // Limites inteiros das faixas (k buckets => k+1 fronteiras inteiras)
   const boundaries: number[] = Array.from({ length: k + 1 }, (_, i) => {
     return start + Math.round((intRange * i) / k)
   })
@@ -129,11 +263,10 @@ const buckets = computed<ElevationBucket[] | null>(() => {
     percentage: 0,
   }))
 
-  for (const v of props.elevations) {
-    if (!Number.isFinite(v)) continue
-    const clamped = Math.max(start, Math.min(end, v))
+  for (const value of values) {
+    if (!Number.isFinite(value)) continue
+    const clamped = Math.max(start, Math.min(end, value))
 
-    // Encontra o bucket: [boundary[i], boundary[i+1}), último inclui o fim
     let idx = k - 1
     for (let i = 0; i < k - 1; i++) {
       if (clamped < boundaries[i + 1]!) {
@@ -145,11 +278,12 @@ const buckets = computed<ElevationBucket[] | null>(() => {
     rawBuckets[idx]!.count += 1
   }
 
-  return rawBuckets.map((b) => ({
-    ...b,
-    percentage: n ? Math.round((b.count / n) * 100) : 0,
+  return rawBuckets.map((bucket) => ({
+    ...bucket,
+    percentage: n ? Math.round((bucket.count / n) * 100) : 0,
   }))
 })
+
 type HistogramBar = ElevationBucket & {
   x: number
   y: number
@@ -166,8 +300,7 @@ const histogramMaxY = computed(() => {
   const list = buckets.value
   if (!list || !list.length) return 0
 
-  const maxPercent = Math.max(...list.map((b) => b.percentage), 0)
-
+  const maxPercent = Math.max(...list.map((bucket) => bucket.percentage), 0)
   const step = 5
   const base = Math.max(step, maxPercent)
 
@@ -180,7 +313,6 @@ const histogramBars = computed<HistogramBar[]>(() => {
 
   const innerWidth = width - histogramPaddingLeft - histogramPaddingRight
   const innerHeight = height - histogramPaddingTop - histogramPaddingBottom
-
   const maxY = histogramMaxY.value || 1
   const baseBarWidth = innerWidth / list.length
   const barWidth = 50
@@ -197,7 +329,6 @@ const histogramBars = computed<HistogramBar[]>(() => {
       y,
       barWidth,
       barHeight,
-      baseBarWidth,
     }
   })
 })
@@ -218,31 +349,6 @@ const histogramTicks = computed<HistogramTick[]>(() => {
   }
 
   return ticks
-})
-
-const points = computed(() => {
-  const series = smoothedElevations.value
-  const n = series.length
-  const currentStats = stats.value
-
-  if (!n || !currentStats) return ''
-
-  const { max, range } = currentStats
-  const innerWidth = width - 2 * padding
-  const innerHeight = height - 2 * padding
-
-  return series
-    .map((elevation, index) => {
-      const x =
-        n === 1
-          ? padding + innerWidth / 2
-          : padding + (index / (n - 1)) * innerWidth
-
-      const y = padding + ((max - elevation) / range) * innerHeight
-
-      return `${x},${y}`
-    })
-    .join(' ')
 })
 
 async function exportAsPng() {
@@ -325,14 +431,15 @@ async function exportHistogramAsPng() {
     <header class="elevation-chart__header">
       <h2>Gráfico de elevação</h2>
       <p v-if="!hasData" class="elevation-chart__placeholder">
-        Cole alguns valores de elevação e clique em "Gerar gráfico de elevação"
-        para visualizar o perfil.
+        Cole alguns pontos de perfil e clique em "Gerar gráfico de elevação"
+        para visualizar o gráfico.
       </p>
-      <p v-else-if="stats" class="elevation-chart__summary">
+      <p v-else-if="stats && distanceStats" class="elevation-chart__summary">
         Pontos: <strong>{{ stats.count }}</strong>
         · Mín: <strong>{{ stats.min.toFixed(2) }}</strong>
         · Máx: <strong>{{ stats.max.toFixed(2) }}</strong>
         · Amplitude: <strong>{{ stats.range.toFixed(2) }}</strong>
+        · Distância: <strong>{{ (distanceStats.range / 1000).toFixed(3) }} km</strong>
       </p>
     </header>
 
@@ -393,13 +500,92 @@ async function exportHistogramAsPng() {
 
         <!-- Eixos simples -->
         <g stroke="#64748b" stroke-width="1">
-          <line :x1="padding" :y1="height - padding" :x2="width - padding" :y2="height - padding" />
-          <line :x1="padding" :y1="padding" :x2="padding" :y2="height - padding" />
+          <line
+            :x1="padding"
+            :y1="height - padding"
+            :x2="width - padding"
+            :y2="height - padding"
+          />
+          <line
+            :x1="padding"
+            :y1="padding"
+            :x2="padding"
+            :y2="height - padding"
+          />
         </g>
+
+        <!-- Grade e rótulos do eixo Y (elevação em metros) -->
+        <g v-if="yAxisTicks.length" stroke="#334155" stroke-width="0.5">
+          <line
+            v-for="tick in yAxisTicks"
+            :key="`y-grid-${tick.value}`"
+            :x1="padding"
+            :y1="tick.position"
+            :x2="width - padding"
+            :y2="tick.position"
+          />
+
+          <text
+            v-for="tick in yAxisTicks"
+            :key="`y-label-${tick.value}`"
+            :x="padding - 8"
+            :y="tick.position + 4"
+            text-anchor="end"
+            font-size="11"
+            fill="#cbd5e1"
+          >
+            {{ tick.label }}
+          </text>
+        </g>
+
+        <!-- Rótulos do eixo X (distância em km) -->
+        <g v-if="xAxisTicks.length" stroke="#334155" stroke-width="0.5">
+          <line
+            v-for="tick in xAxisTicks"
+            :key="`x-tick-${tick.value}`"
+            :x1="tick.position"
+            :y1="height - padding"
+            :x2="tick.position"
+            :y2="height - padding + 6"
+          />
+
+          <text
+            v-for="tick in xAxisTicks"
+            :key="`x-label-${tick.value}`"
+            :x="tick.position"
+            :y="height - padding + 20"
+            text-anchor="middle"
+            font-size="11"
+            fill="#cbd5e1"
+          >
+            {{ tick.label }}
+          </text>
+        </g>
+
+        <text
+          x="50%"
+          :y="height - 6"
+          text-anchor="middle"
+          font-size="12"
+          fill="#e2e8f0"
+        >
+          Distância (km)
+        </text>
+
+        <text
+          x="8"
+          y="50%"
+          text-anchor="middle"
+          font-size="12"
+          fill="#e2e8f0"
+          :transform="`rotate(-90 8 ${height / 2})`"
+        >
+          Elevação (m)
+        </text>
 
         <!-- Linha de perfil -->
         <polyline
-          :points="points"
+          :points="profileLinePoints"
           fill="none"
           stroke="#22c55e"
           stroke-width="2.5"
@@ -409,8 +595,8 @@ async function exportHistogramAsPng() {
 
         <!-- Área sob a curva -->
         <polygon
-          v-if="points"
-          :points="`${points} ${width - padding},${height - padding} ${padding},${height - padding}`"
+          v-if="profileAreaPoints"
+          :points="profileAreaPoints"
           fill="url(#elevation-gradient)"
           opacity="0.9"
         />
@@ -608,10 +794,15 @@ async function exportHistogramAsPng() {
 
 .elevation-chart__control {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   font-size: 0.9rem;
   color: #e5e7eb;
+}
+
+.elevation-chart__control input[type='range'] {
+  max-width: 220px;
 }
 
 .elevation-chart__export-button {
@@ -652,11 +843,14 @@ async function exportHistogramAsPng() {
   border: 1px solid #1f2937;
   background: radial-gradient(circle at top left, #1f2937, #020617);
   padding: 1rem;
+  overflow-x: auto;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.6);
+  justify-items: center;
 }
 
 .elevation-chart__canvas {
   display: block;
+  min-width: 720px;
 }
 
 .elevation-chart__buckets {

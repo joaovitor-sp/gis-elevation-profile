@@ -1,16 +1,27 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+type ProfilePoint = {
+  distanceMeters: number
+  latitudeMeters: number
+  longitudeMeters: number
+  elevationMeters: number
+}
+
 const model = ref<string>('')
 const errors = ref<string[]>([])
 
 const emit = defineEmits<{
-  (e: 'update:elevations', values: number[]): void
+  (e: 'update:elevations', values: ProfilePoint[]): void
 }>()
 
-function parseElevations(raw: string): { values: number[]; errors: string[] } {
+function parseNumber(value: string): number {
+  return Number(value.replace(',', '.'))
+}
+
+function parseElevations(raw: string): { values: ProfilePoint[]; errors: string[] } {
   const lines = raw.split(/\r?\n/)
-  const values: number[] = []
+  const values: ProfilePoint[] = []
   const parseErrors: string[] = []
 
   lines.forEach((line, index) => {
@@ -20,34 +31,40 @@ function parseElevations(raw: string): { values: number[]; errors: string[] } {
       return
     }
 
-    // Se houver mais de uma coluna, pega sempre a última
-    // Separadores comuns: tab, espaços, ponto-e-vírgula
+    // Separadores comuns: tab, espaços, ponto-e-vírgula.
     const parts = trimmed.split(/[\t;\s]+/).filter(Boolean)
 
-    if (!parts.length) {
-      parseErrors.push(`Linha ${index + 1}: nenhum valor encontrado.`)
+    if (parts.length < 4) {
+      parseErrors.push(
+        `Linha ${index + 1}: esperado 4 colunas (posição, latitude, longitude, elevação).`,
+      )
       return
     }
 
-    const lastToken = parts[parts.length - 1] ?? ''
+    const distanceMeters = parseNumber(parts[0] ?? '')
+    const latitudeMeters = parseNumber(parts[1] ?? '')
+    const longitudeMeters = parseNumber(parts[2] ?? '')
+    const elevationMeters = parseNumber(parts[3] ?? '')
 
-    if (!lastToken) {
-      parseErrors.push(`Linha ${index + 1}: nenhum valor numérico encontrado.`)
-      return
-    }
-
-    const normalized = lastToken.replace(',', '.')
-    const value = Number(normalized)
-
-    if (Number.isFinite(value)) {
-      values.push(value)
+    if (
+      Number.isFinite(distanceMeters) &&
+      Number.isFinite(latitudeMeters) &&
+      Number.isFinite(longitudeMeters) &&
+      Number.isFinite(elevationMeters)
+    ) {
+      values.push({
+        distanceMeters,
+        latitudeMeters,
+        longitudeMeters,
+        elevationMeters,
+      })
     } else {
       parseErrors.push(`Linha ${index + 1}: valor inválido "${line}"`)
     }
   })
 
   if (!values.length) {
-    parseErrors.push('Nenhum valor numérico de elevação foi encontrado.')
+    parseErrors.push('Nenhum ponto válido foi encontrado nas 4 colunas esperadas.')
   }
 
   return { values, errors: parseErrors }
@@ -68,21 +85,21 @@ function handleGenerate() {
     <header class="elevation-input__header">
       <h1>Perfil de Elevação</h1>
       <p>
-        Cole aqui a coluna de valores de elevação copiada do QGIS (Topodata)
-        ou do Excel. Cada linha deve conter apenas um valor numérico.
+        Cole aqui os dados em 4 colunas na ordem: posição (m), latitude,
+        longitude e elevação (m).
       </p>
     </header>
 
     <div class="elevation-input__body">
       <label class="elevation-input__label" for="elevation-textarea">
-        Valores de elevação (uma por linha)
+        Dados de perfil (4 colunas por linha)
       </label>
       <textarea
         id="elevation-textarea"
         v-model="model"
         class="elevation-input__textarea"
         rows="12"
-        placeholder="Exemplo:\n123.45\n124.10\n125.80\n..."
+        placeholder="Exemplo:\n0.0 375231.7634 9357547.3236 201.476\n2.8243 375234.0856 9357548.9313 201.476\n39.7112 375264.3721 9357569.9875 200.712"
       />
 
       <button type="button" class="elevation-input__button" @click="handleGenerate">
@@ -90,8 +107,8 @@ function handleGenerate() {
       </button>
 
       <p class="elevation-input__hint">
-        Dica: selecione a coluna de elevação no QGIS ou Excel, copie (Ctrl+C)
-        e cole (Ctrl+V) diretamente na área de texto acima.
+        Dica: exporte os pontos no QGIS/Excel com as 4 colunas na ordem
+        indicada, copie (Ctrl+C) e cole (Ctrl+V) diretamente na área de texto.
       </p>
 
       <ul v-if="errors.length" class="elevation-input__errors">

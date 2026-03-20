@@ -3,17 +3,24 @@ import { ref } from 'vue'
 import ElevationInput from './components/ElevationInput.vue'
 import ElevationChart from './components/ElevationChart.vue'
 
-const elevations = ref<number[]>([])
+type ProfilePoint = {
+  distanceMeters: number
+  latitudeMeters: number
+  longitudeMeters: number
+  elevationMeters: number
+}
 
-function handleUpdateElevations(values: number[]) {
-  elevations.value = values
+const profilePoints = ref<ProfilePoint[]>([])
+
+function handleUpdateElevations(values: ProfilePoint[]) {
+  profilePoints.value = values
 }
 </script>
 
 <template>
   <main class="app">
     <ElevationInput @update:elevations="handleUpdateElevations" />
-    <ElevationChart :elevations="elevations" />
+    <ElevationChart :profile-points="profilePoints" />
   </main>
 </template>
 
