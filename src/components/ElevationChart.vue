@@ -14,7 +14,7 @@ const props = defineProps<{
 
 // Configuração de visualização
 const height = 380
-const padding = 60
+const padding = 55
 const width = 720
 
 // Layout do histograma
@@ -573,12 +573,12 @@ async function exportHistogramAsPng() {
         </text>
 
         <text
-          x="8"
+          x="18"
           y="50%"
           text-anchor="middle"
           font-size="12"
           fill="#e2e8f0"
-          :transform="`rotate(-90 8 ${height / 2})`"
+          :transform="`rotate(-90 10 ${height / 2})`"
         >
           Elevação (m)
         </text>
