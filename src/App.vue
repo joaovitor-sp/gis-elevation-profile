@@ -2,18 +2,62 @@
 import { ref } from 'vue'
 import ElevationInput from './components/ElevationInput.vue'
 import ElevationChart from './components/ElevationChart.vue'
+import KmzMap from './components/KmzMap.vue'
+import ImageMetadataMap from './components/ImageMetadataMap.vue'
+
+type LatLng = {
+  lat: number
+  lng: number
+}
 
 const elevations = ref<number[]>([])
+const profileCoordinates = ref<LatLng[]>([])
+
+type View = 'profile' | 'images'
+const currentView = ref<View>('profile')
 
 function handleUpdateElevations(values: number[]) {
   elevations.value = values
+}
+
+function handleUpdateCoordinates(coords: LatLng[]) {
+  profileCoordinates.value = coords
 }
 </script>
 
 <template>
   <main class="app">
-    <ElevationInput @update:elevations="handleUpdateElevations" />
-    <ElevationChart :elevations="elevations" />
+    <header class="app__nav">
+      <button
+        type="button"
+        class="app__nav-button"
+        :class="{ 'app__nav-button--active': currentView === 'profile' }"
+        @click="currentView = 'profile'"
+      >
+        Perfil de Elevação
+      </button>
+      <button
+        type="button"
+        class="app__nav-button"
+        :class="{ 'app__nav-button--active': currentView === 'images' }"
+        @click="currentView = 'images'"
+      >
+        Imagens / Metadados
+      </button>
+    </header>
+
+    <section v-if="currentView === 'profile'" class="app__section">
+      <ElevationInput
+        @update:elevations="handleUpdateElevations"
+        @update:coordinates="handleUpdateCoordinates"
+      />
+      <ElevationChart :elevations="elevations" />
+      <KmzMap :profile-coordinates="profileCoordinates" />
+    </section>
+
+    <section v-else class="app__section">
+      <ImageMetadataMap />
+    </section>
   </main>
 </template>
 
@@ -25,6 +69,34 @@ function handleUpdateElevations(values: number[]) {
   justify-content: flex-start;
   padding: 2rem 0;
   color: #e5e7eb;
+}
+
+.app__nav {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.app__nav-button {
+  padding: 0.45rem 1.3rem;
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.app__nav-button--active {
+  background: linear-gradient(90deg, #2563eb, #22c55e);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.app__section {
+  width: 100%;
 }
 
 @media (max-width: 640px) {

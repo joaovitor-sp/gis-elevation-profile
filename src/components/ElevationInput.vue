@@ -1,17 +1,31 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import proj4 from 'proj4'
+
+type LatLng = {
+  lat: number
+  lng: number
+}
+
+// Ajuste aqui para a zona/hemisfério UTM do seu projeto
+// Exemplo: SIRGAS 2000 / UTM zone 23S (sul do Brasil)
+const UTM_PROJECTION = '+proj=utm +zone=23 +south +datum=WGS84 +units=m +no_defs'
 
 const model = ref<string>('')
 const errors = ref<string[]>([])
 
 const emit = defineEmits<{
   (e: 'update:elevations', values: number[]): void
+  (e: 'update:coordinates', coordinates: LatLng[]): void
 }>()
 
-function parseElevations(raw: string): { values: number[]; errors: string[] } {
+function parseElevations(
+  raw: string,
+): { values: number[]; coordinates: LatLng[]; errors: string[] } {
   const lines = raw.split(/\r?\n/)
   const values: number[] = []
   const parseErrors: string[] = []
+  const coordinates: LatLng[] = []
 
   lines.forEach((line, index) => {
     const trimmed = line.trim()
@@ -20,7 +34,7 @@ function parseElevations(raw: string): { values: number[]; errors: string[] } {
       return
     }
 
-    // Se houver mais de uma coluna, pega sempre a última
+    // Se houver mais de uma coluna, pega sempre a última como elevação
     // Separadores comuns: tab, espaços, ponto-e-vírgula
     const parts = trimmed.split(/[\t;\s]+/).filter(Boolean)
 
@@ -39,10 +53,70 @@ function parseElevations(raw: string): { values: number[]; errors: string[] } {
     const normalized = lastToken.replace(',', '.')
     const value = Number(normalized)
 
-    if (Number.isFinite(value)) {
-      values.push(value)
-    } else {
+    if (!Number.isFinite(value)) {
       parseErrors.push(`Linha ${index + 1}: valor inválido "${line}"`)
+      return
+    }
+
+    values.push(value)
+
+    // Opcional: coordenadas nas colunas antes da elevação.
+    // Suporta:
+    //  - lat, lon, elevação (graus)
+    //  - lon, lat, elevação (graus)
+    //  - E, N, elevação (UTM em metros)
+    //  - distância, E, N, elevação (UTM em metros)
+    if (parts.length >= 3) {
+      const coordTokens = parts.slice(0, parts.length - 1)
+      const nums = coordTokens.map((t) => Number(t.replace(',', '.')))
+
+      if (nums.some((n) => !Number.isFinite(n))) {
+        return
+      }
+
+      let lat: number | null = null
+      let lng: number | null = null
+
+      // Primeiro tenta como graus (usa as duas primeiras colunas numéricas)
+      if (nums.length >= 2) {
+        const a = nums[0]!
+        const b = nums[1]!
+
+        if (Math.abs(a) <= 90 && Math.abs(b) <= 180) {
+          lat = a
+          lng = b
+        } else if (Math.abs(b) <= 90 && Math.abs(a) <= 180) {
+          lat = b
+          lng = a
+        }
+      }
+
+      // Se não for graus, tenta como UTM (usa SEMPRE as duas últimas colunas antes da elevação).
+      if (lat === null && lng === null && nums.length >= 2) {
+        const e = nums[nums.length - 2]!
+        const n = nums[nums.length - 1]!
+
+        if (e > 1000 && n > 1000) {
+          try {
+            const [lonProj, latProj] = proj4(UTM_PROJECTION, 'WGS84', [e, n])
+            lat = latProj
+            lng = lonProj
+          } catch {
+            // se der erro na projeção, ignora as coordenadas desta linha
+          }
+        }
+      }
+
+      if (
+        lat !== null &&
+        lng !== null &&
+        Number.isFinite(lat) &&
+        Number.isFinite(lng) &&
+        Math.abs(lat) <= 90 &&
+        Math.abs(lng) <= 180
+      ) {
+        coordinates.push({ lat, lng })
+      }
     }
   })
 
@@ -50,15 +124,24 @@ function parseElevations(raw: string): { values: number[]; errors: string[] } {
     parseErrors.push('Nenhum valor numérico de elevação foi encontrado.')
   }
 
-  return { values, errors: parseErrors }
+  // Se não tivermos coordenadas para todas as elevações, ignoramos para não desenhar um perfil incompleto
+  const finalCoordinates =
+    coordinates.length === values.length ? coordinates : []
+
+  return { values, coordinates: finalCoordinates, errors: parseErrors }
 }
 
 function handleGenerate() {
-  const { values, errors: parseErrors } = parseElevations(model.value)
+  const { values, coordinates, errors: parseErrors } = parseElevations(model.value)
   errors.value = parseErrors
 
   if (!parseErrors.length) {
     emit('update:elevations', values)
+    if (coordinates.length) {
+      emit('update:coordinates', coordinates)
+    } else {
+      emit('update:coordinates', [])
+    }
   }
 }
 </script>
@@ -69,7 +152,11 @@ function handleGenerate() {
       <h1>Perfil de Elevação</h1>
       <p>
         Cole aqui a coluna de valores de elevação copiada do QGIS (Topodata)
-        ou do Excel. Cada linha deve conter apenas um valor numérico.
+        ou do Excel. Cada linha pode conter apenas um valor numérico ou três
+        colunas: <strong>latitude</strong>, <strong>longitude</strong> e
+        <strong>elevação</strong> (em graus), ou então
+        <strong>E (UTM)</strong>, <strong>N (UTM)</strong> e
+        <strong>elevação</strong> (em metros).
       </p>
     </header>
 
