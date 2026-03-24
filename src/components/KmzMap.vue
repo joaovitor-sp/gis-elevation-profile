@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch, computed } from 'vue'
 import L, { Map as LeafletMap, Marker, Polyline } from 'leaflet'
 import JSZip from 'jszip'
 
@@ -8,6 +8,16 @@ import 'leaflet/dist/leaflet.css'
 type LatLng = {
   lat: number
   lng: number
+}
+
+type KmzPoint = {
+  id: number
+  name: string
+  lat: number
+  lng: number
+  litologia: string
+  unidadeGeologica: string
+  mergulho: string
 }
 
 const props = defineProps<{
@@ -22,6 +32,25 @@ let profilePolyline: Polyline | null = null
 
 const loading = ref(false)
 const error = ref<string | null>(null)
+const kmzPoints = ref<KmzPoint[]>([])
+
+const litologiaOptions = computed(() => {
+  const set = new Set<string>()
+  kmzPoints.value.forEach((p) => {
+    const value = p.litologia.trim()
+    if (value) set.add(value)
+  })
+  return Array.from(set)
+})
+
+const unidadeGeologicaOptions = computed(() => {
+  const set = new Set<string>()
+  kmzPoints.value.forEach((p) => {
+    const value = p.unidadeGeologica.trim()
+    if (value) set.add(value)
+  })
+  return Array.from(set)
+})
 
 // Util simples para limpar as camadas anteriores
 function clearLayers() {
@@ -29,6 +58,7 @@ function clearLayers() {
   polylines.forEach((p) => p.remove())
   markers = []
   polylines = []
+  kmzPoints.value = []
 }
 
 function updateProfilePolyline() {
@@ -67,9 +97,9 @@ function parseKmlCoordinates(kmlText: string) {
     throw new Error('Erro ao interpretar o KML dentro do KMZ.')
   }
 
-  type LatLng = { lat: number; lng: number }
+  type ParsedPoint = { lat: number; lng: number; name?: string }
 
-  const points: LatLng[] = []
+  const points: ParsedPoint[] = []
   const lines: LatLng[][] = []
 
   // Placemarks com Point
@@ -84,7 +114,16 @@ function parseKmlCoordinates(kmlText: string) {
     const lat = Number(latStr)
     const lng = Number(lngStr)
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      points.push({ lat, lng })
+      let name = ''
+      const placemark = pointNode.closest('Placemark')
+      if (placemark) {
+        const nameNode = placemark.getElementsByTagName('name')[0]
+        if (nameNode && nameNode.textContent) {
+          name = nameNode.textContent.trim()
+        }
+      }
+
+      points.push({ lat, lng, name })
     }
   }
 
@@ -153,9 +192,22 @@ async function handleFileChange(event: Event) {
 
     const allCoords: [number, number][] = []
 
+    kmzPoints.value = points.map((p, index) => ({
+      id: index + 1,
+      name: p.name || `Ponto ${index + 1}`,
+      lat: p.lat,
+      lng: p.lng,
+      litologia: '',
+      unidadeGeologica: '',
+      mergulho: '',
+    }))
+
     // Adiciona marcadores para pontos
-    points.forEach(({ lat, lng }) => {
+    points.forEach(({ lat, lng, name }) => {
       const marker = L.marker([lat, lng])
+      if (name) {
+        marker.bindPopup(name)
+      }
       marker.addTo(map!)
       markers.push(marker)
       allCoords.push([lat, lng])
@@ -253,6 +305,56 @@ watch(
     </div>
 
     <div ref="mapContainer" class="kmz-map__map"></div>
+
+    <div v-if="kmzPoints.length" class="kmz-map__table-wrapper">
+      <h3>Informações dos pontos</h3>
+      <div class="kmz-map__table-scroll">
+        <table class="kmz-map__table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nome do ponto</th>
+              <th>Coordenadas</th>
+              <th>Litologia</th>
+              <th>Unidade geológica</th>
+              <th>Mergulho da camada</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(ponto, index) in kmzPoints" :key="ponto.id">
+              <td>{{ index + 1 }}</td>
+              <td>
+                <input v-model="ponto.name" type="text" />
+              </td>
+              <td>
+                {{ ponto.lat.toFixed(5) }}, {{ ponto.lng.toFixed(5) }}
+              </td>
+              <td>
+                <input v-model="ponto.litologia" type="text" list="litologia-options" />
+              </td>
+              <td>
+                <input
+                  v-model="ponto.unidadeGeologica"
+                  type="text"
+                  list="unidade-geologica-options"
+                />
+              </td>
+              <td>
+                <input v-model="ponto.mergulho" type="text" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <datalist id="litologia-options">
+      <option v-for="opt in litologiaOptions" :key="opt" :value="opt" />
+    </datalist>
+
+    <datalist id="unidade-geologica-options">
+      <option v-for="opt in unidadeGeologicaOptions" :key="opt" :value="opt" />
+    </datalist>
   </section>
 </template>
 
@@ -323,6 +425,70 @@ watch(
   border-radius: 1rem;
   overflow: hidden;
   border: 1px solid #1f2937;
+}
+
+.kmz-map__table-wrapper {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #1f2937;
+  background: #020617;
+}
+
+.kmz-map__table-wrapper h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.kmz-map__table-scroll {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.kmz-map__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.kmz-map__table thead {
+  position: sticky;
+  top: 0;
+  background: #020617;
+  z-index: 1;
+}
+
+.kmz-map__table th,
+.kmz-map__table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #1f2937;
+  text-align: left;
+}
+
+.kmz-map__table th {
+  font-weight: 500;
+  color: #e5e7eb;
+  white-space: nowrap;
+}
+
+.kmz-map__table td {
+  color: #e5e7eb;
+}
+
+.kmz-map__table input {
+  width: 100%;
+  padding: 0.25rem 0.4rem;
+  border-radius: 0.375rem;
+  border: 1px solid #4b5563;
+  background: #020617;
+  color: #e5e7eb;
+  font-size: 0.8rem;
+}
+
+.kmz-map__table input:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
 }
 
 /* Garante que o CSS do Leaflet funcione bem dentro do escopo */
