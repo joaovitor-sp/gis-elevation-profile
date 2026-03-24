@@ -42,6 +42,13 @@ const mapContainer = ref<HTMLDivElement | null>(null)
 let map: LeafletMap | null = null
 let markers: Marker[] = []
 
+// Ícone simples em forma de ponto para os marcadores de imagem
+const imagePointIcon = L.divIcon({
+  className: 'img-map__marker',
+  iconSize: [10, 10],
+  iconAnchor: [5, 5],
+})
+
 // ---------------------------------------------------------------------------
 // Helpers de parsing
 // ---------------------------------------------------------------------------
@@ -209,7 +216,7 @@ function renderMarkers() {
   for (const point of points.value) {
     if (point.lat === undefined || point.lng === undefined) continue
 
-    const marker = L.marker([point.lat, point.lng])
+    const marker = L.marker([point.lat, point.lng], { icon: imagePointIcon })
     const condemnedCount = point.images.filter((i) => i.isCondemned).length
 
     const popupLines: string[] = []
@@ -646,6 +653,15 @@ onBeforeUnmount(() => {
 .img-map__badge--danger {
   background-color: #7f1d1d;
   color: #fee2e2;
+}
+
+:global(.img-map__marker) {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background-color: #22c55e;
+  border: 2px solid #022c22;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35);
 }
 
 :global(.leaflet-container) {
