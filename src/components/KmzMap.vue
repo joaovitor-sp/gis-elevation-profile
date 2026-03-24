@@ -30,6 +30,12 @@ let markers: Marker[] = []
 let polylines: Polyline[] = []
 let profilePolyline: Polyline | null = null
 
+const kmzPointIcon = L.divIcon({
+  className: 'kmz-map__marker',
+  iconSize: [10, 10],
+  iconAnchor: [5, 5],
+})
+
 const loading = ref(false)
 const error = ref<string | null>(null)
 const kmzPoints = ref<KmzPoint[]>([])
@@ -204,7 +210,7 @@ async function handleFileChange(event: Event) {
 
     // Adiciona marcadores para pontos
     points.forEach(({ lat, lng, name }) => {
-      const marker = L.marker([lat, lng])
+      const marker = L.marker([lat, lng], { icon: kmzPointIcon })
       if (name) {
         marker.bindPopup(name)
       }
@@ -425,6 +431,17 @@ watch(
   border-radius: 1rem;
   overflow: hidden;
   border: 1px solid #1f2937;
+}
+
+:global(.kmz-map__marker) {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, #dbeafe, #3b82f6 60%, #1d4ed8);
+  border: 2px solid #1e3a8a;
+  box-shadow:
+    0 0 0 2px rgba(59, 130, 246, 0.35),
+    0 6px 10px rgba(0, 0, 0, 0.45);
 }
 
 .kmz-map__table-wrapper {

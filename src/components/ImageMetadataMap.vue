@@ -656,12 +656,14 @@ onBeforeUnmount(() => {
 }
 
 :global(.img-map__marker) {
-  width: 10px;
-  height: 10px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
-  background-color: #22c55e;
-  border: 2px solid #022c22;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35);
+  background: radial-gradient(circle at 30% 30%, #bbf7d0, #22c55e 60%, #15803d);
+  border: 2px solid #064e3b;
+  box-shadow:
+    0 0 0 2px rgba(34, 197, 94, 0.35),
+    0 6px 10px rgba(0, 0, 0, 0.45);
 }
 
 :global(.leaflet-container) {
