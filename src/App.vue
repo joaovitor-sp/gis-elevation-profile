@@ -10,14 +10,21 @@ type LatLng = {
   lng: number
 }
 
-const elevations = ref<number[]>([])
+type ProfilePoint = {
+  distanceMeters: number
+  latitudeMeters: number
+  longitudeMeters: number
+  elevationMeters: number
+}
+
+const profilePoints = ref<ProfilePoint[]>([])
 const profileCoordinates = ref<LatLng[]>([])
 
 type View = 'profile' | 'images'
 const currentView = ref<View>('profile')
 
-function handleUpdateElevations(values: number[]) {
-  elevations.value = values
+function handleUpdateElevations(values: ProfilePoint[]) {
+  profilePoints.value = values
 }
 
 function handleUpdateCoordinates(coords: LatLng[]) {
@@ -51,7 +58,7 @@ function handleUpdateCoordinates(coords: LatLng[]) {
         @update:elevations="handleUpdateElevations"
         @update:coordinates="handleUpdateCoordinates"
       />
-      <ElevationChart :elevations="elevations" />
+      <ElevationChart :profile-points="profilePoints" />
       <KmzMap :profile-coordinates="profileCoordinates" />
     </section>
 
