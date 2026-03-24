@@ -354,30 +354,38 @@ onBeforeUnmount(() => {
     <header class="img-map__header">
       <h2>Imagens e Metadados (Mapa)</h2>
       <p>
-        Selecione uma pasta com várias imagens. Para cada imagem que possuir um
-        <strong>título</strong> (metadado) no formato:
+        Carregue uma pasta com fotos georreferenciadas e veja, em um único
+        mapa, <strong>todos os pontos</strong> e o conjunto de imagens
+        associados a cada um deles.
       </p>
+
       <p class="img-map__example">
+        Exemplo de título em 3 linhas:<br />
         Trecho BR-135<br />
         Mapeamento geológico (DNIT L3 - OS-40A)<br />
         <strong>P36 LE</strong>
       </p>
-      <p>
-        O sistema irá considerar apenas a <strong>última linha</strong> (por
-        exemplo, <strong>P36 LE</strong>) como identificador do
-        <strong>ponto</strong>. Todas as imagens com a mesma última linha são
-        agrupadas em <strong>um único ponto</strong> no mapa.
-      </p>
-      <p>
-        Imagens <strong>sem título</strong> (campo vazio) são ignoradas e não
-        aparecem nem na lista nem no mapa.
-      </p>
-      <p>
-        Se os metadados da imagem indicarem que ela é
-        <strong>condenada</strong> (por exemplo, contendo a palavra
-        "condenada"), essa informação será mostrada nos detalhes do ponto e na
-        lista de imagens.
-      </p>
+
+      <ul class="img-map__rules">
+        <li>
+          Apenas a <strong>última linha</strong> do título (ex.: <strong>P36 LE</strong>)
+          é usada como <strong>código do ponto</strong>.
+        </li>
+        <li>
+          Todas as imagens com o <strong>mesmo código final</strong> são
+          agrupadas em <strong>um único marcador</strong> no mapa.
+        </li>
+        <li>
+          Imagens <strong>sem título</strong> são ignoradas e não entram na
+          contagem nem na lista.
+        </li>
+        <li>
+          Se o título ou os metadados contiverem a palavra
+          <strong>"condenada"</strong>, a imagem será destacada como
+          <span class="img-map__badge img-map__badge--danger">condenada</span>
+          na lista e no resumo exportado para KMZ.
+        </li>
+      </ul>
     </header>
 
     <div class="img-map__controls">
@@ -483,8 +491,20 @@ onBeforeUnmount(() => {
   margin: 0.25rem 0;
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
-  background-color: #020617;
+  background: radial-gradient(circle at top left, #1f2937, #020617);
+  border: 1px solid #334155;
   font-size: 0.9rem;
+}
+
+.img-map__rules {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.img-map__rules li {
+  margin-bottom: 0.3rem;
 }
 
 .img-map__controls {
