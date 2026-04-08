@@ -27,8 +27,10 @@ const smoothEnabled = ref<boolean>(false)
 const smoothWindow = ref<number>(5)
 const bucketCount = ref<number>(5)
 const xScale = ref<number>(1)
+const yScale = ref<number>(1)
 
 const svgWidth = computed(() => Math.round(width * xScale.value))
+const svgHeight = computed(() => Math.round(height * yScale.value))
 
 const hasData = computed(() => props.profilePoints.length > 0)
 
@@ -156,7 +158,7 @@ const yAxisTicks = computed<AxisTick[]>(() => {
   const currentStats = stats.value
   if (!currentStats) return []
 
-  const innerHeight = height - 2 * padding
+  const innerHeight = svgHeight.value - 2 * padding
   const stepM = Math.max(5, Math.ceil((currentStats.range / 4 || 1) / 5) * 5)
   let minAxis = Math.floor(currentStats.min / 5) * 5
   let maxAxis = Math.ceil(currentStats.max / 5) * 5
@@ -188,7 +190,7 @@ const profileCoordinates = computed(() => {
   if (!currentStats || !currentDistanceStats || !series.length) return []
 
   const innerWidth = svgWidth.value - 2 * padding
-  const innerHeight = height - 2 * padding
+  const innerHeight = svgHeight.value - 2 * padding
 
   return series.map((elevation, index) => {
     const distance = distanceSeries[index] ?? currentDistanceStats.min
@@ -208,7 +210,7 @@ const profileAreaPoints = computed(() => {
   const coords = profileCoordinates.value
   if (!coords.length) return ''
 
-  const baselineY = height - padding
+  const baselineY = svgHeight.value - padding
   const firstX = coords[0]!.x
   const lastX = coords[coords.length - 1]!.x
 
@@ -361,7 +363,7 @@ async function exportAsPng() {
   const clone = svgElement.cloneNode(true) as SVGSVGElement
 
   clone.setAttribute('width', String(svgWidth.value))
-  clone.setAttribute('height', String(height))
+  clone.setAttribute('height', String(svgHeight.value))
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
 
   const serializer = new XMLSerializer()
@@ -373,7 +375,7 @@ async function exportAsPng() {
   image.onload = () => {
     const canvas = document.createElement('canvas')
     canvas.width = svgWidth.value
-    canvas.height = height
+    canvas.height = svgHeight.value
     const ctx = canvas.getContext('2d')
     if (ctx) {
       ctx.drawImage(image, 0, 0)
@@ -485,6 +487,17 @@ async function exportHistogramAsPng() {
         />
       </label>
 
+      <label class="elevation-chart__control">
+        Escala vertical: {{ yScale.toFixed(1) }}×
+        <input
+          v-model.number="yScale"
+          type="range"
+          min="0.2"
+          max="5"
+          step="0.1"
+        />
+      </label>
+
       <button
         type="button"
         class="elevation-chart__export-button"
@@ -498,9 +511,9 @@ async function exportHistogramAsPng() {
       <svg
         class="elevation-chart__canvas"
         ref="svgRef"
-        :viewBox="`0 0 ${svgWidth} ${height}`"
+        :viewBox="`0 0 ${svgWidth} ${svgHeight}`"
         :width="svgWidth"
-        :height="height"
+        :height="svgHeight"
         role="img"
         aria-label="Gráfico de perfil de elevação"
       >
@@ -516,15 +529,15 @@ async function exportHistogramAsPng() {
         <g stroke="#64748b" stroke-width="1">
           <line
             :x1="padding"
-            :y1="height - padding"
-            :x2="width - padding"
-            :y2="height - padding"
+            :y1="svgHeight - padding"
+            :x2="svgWidth - padding"
+            :y2="svgHeight - padding"
           />
           <line
             :x1="padding"
             :y1="padding"
             :x2="padding"
-            :y2="height - padding"
+            :y2="svgHeight - padding"
           />
         </g>
 
@@ -558,16 +571,16 @@ async function exportHistogramAsPng() {
             v-for="tick in xAxisTicks"
             :key="`x-tick-${tick.value}`"
             :x1="tick.position"
-            :y1="height - padding"
+            :y1="svgHeight - padding"
             :x2="tick.position"
-            :y2="height - padding + 6"
+            :y2="svgHeight - padding + 6"
           />
 
           <text
             v-for="tick in xAxisTicks"
             :key="`x-label-${tick.value}`"
             :x="tick.position"
-            :y="height - padding + 20"
+            :y="svgHeight - padding + 20"
             text-anchor="middle"
             font-size="11"
             fill="#cbd5e1"
@@ -578,7 +591,7 @@ async function exportHistogramAsPng() {
 
         <text
           x="50%"
-          :y="height - 6"
+          :y="svgHeight - 6"
           text-anchor="middle"
           font-size="12"
           fill="#e2e8f0"
@@ -592,7 +605,7 @@ async function exportHistogramAsPng() {
           text-anchor="middle"
           font-size="12"
           fill="#e2e8f0"
-          :transform="`rotate(-90 10 ${height / 2})`"
+          :transform="`rotate(-90 10 ${svgHeight / 2})`"
         >
           Elevação (m)
         </text>
