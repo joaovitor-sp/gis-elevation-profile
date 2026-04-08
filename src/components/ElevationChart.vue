@@ -26,6 +26,9 @@ const histogramPaddingRight = 30
 const smoothEnabled = ref<boolean>(false)
 const smoothWindow = ref<number>(5)
 const bucketCount = ref<number>(5)
+const xScale = ref<number>(1)
+
+const svgWidth = computed(() => Math.round(width * xScale.value))
 
 const hasData = computed(() => props.profilePoints.length > 0)
 
@@ -122,7 +125,7 @@ const xAxisTicks = computed<AxisTick[]>(() => {
   const currentDistanceStats = distanceStats.value
   if (!currentDistanceStats) return []
 
-  const innerWidth = width - 2 * padding
+  const innerWidth = svgWidth.value - 2 * padding
   const minKm = currentDistanceStats.min / 1000
   const maxKm = currentDistanceStats.max / 1000
   const rangeKm = maxKm - minKm
@@ -184,7 +187,7 @@ const profileCoordinates = computed(() => {
 
   if (!currentStats || !currentDistanceStats || !series.length) return []
 
-  const innerWidth = width - 2 * padding
+  const innerWidth = svgWidth.value - 2 * padding
   const innerHeight = height - 2 * padding
 
   return series.map((elevation, index) => {
@@ -357,7 +360,7 @@ async function exportAsPng() {
   const svgElement = svgRef.value
   const clone = svgElement.cloneNode(true) as SVGSVGElement
 
-  clone.setAttribute('width', String(width))
+  clone.setAttribute('width', String(svgWidth.value))
   clone.setAttribute('height', String(height))
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
 
@@ -369,7 +372,7 @@ async function exportAsPng() {
   const image = new Image()
   image.onload = () => {
     const canvas = document.createElement('canvas')
-    canvas.width = width
+    canvas.width = svgWidth.value
     canvas.height = height
     const ctx = canvas.getContext('2d')
     if (ctx) {
@@ -455,7 +458,7 @@ async function exportHistogramAsPng() {
           v-model.number="smoothWindow"
           type="range"
           min="3"
-          max="31"
+          max="201"
           step="2"
         />
       </label>
@@ -468,6 +471,17 @@ async function exportHistogramAsPng() {
           min="2"
           max="12"
           step="1"
+        />
+      </label>
+
+      <label class="elevation-chart__control">
+        Escala horizontal: {{ xScale.toFixed(1) }}×
+        <input
+          v-model.number="xScale"
+          type="range"
+          min="1"
+          max="5"
+          step="0.5"
         />
       </label>
 
@@ -484,8 +498,8 @@ async function exportHistogramAsPng() {
       <svg
         class="elevation-chart__canvas"
         ref="svgRef"
-        :viewBox="`0 0 ${width} ${height}`"
-        :width="width"
+        :viewBox="`0 0 ${svgWidth} ${height}`"
+        :width="svgWidth"
         :height="height"
         role="img"
         aria-label="Gráfico de perfil de elevação"
@@ -521,7 +535,7 @@ async function exportHistogramAsPng() {
             :key="`y-grid-${tick.value}`"
             :x1="padding"
             :y1="tick.position"
-            :x2="width - padding"
+            :x2="svgWidth - padding"
             :y2="tick.position"
           />
 
