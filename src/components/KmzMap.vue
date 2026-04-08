@@ -170,8 +170,9 @@ async function handleFileChange(event: Event) {
   error.value = null
 
   if (!file) return
-  if (!file.name.toLowerCase().endsWith('.kmz')) {
-    error.value = 'Por favor, selecione um arquivo KMZ válido.'
+  const lowerName = file.name.toLowerCase()
+  if (!lowerName.endsWith('.kmz') && !lowerName.endsWith('.kml')) {
+    error.value = 'Por favor, selecione um arquivo KMZ ou KML válido.'
     return
   }
 
@@ -179,19 +180,26 @@ async function handleFileChange(event: Event) {
   clearLayers()
 
   try {
-    const arrayBuffer = await file.arrayBuffer()
-    const zip = await JSZip.loadAsync(arrayBuffer)
+    let kmlText: string
 
-    // Tenta encontrar o primeiro arquivo .kml dentro do KMZ
-    const kmlFileEntry = Object.values(zip.files).find((f) =>
-      f.name.toLowerCase().endsWith('.kml'),
-    )
+    if (lowerName.endsWith('.kml')) {
+      kmlText = await file.text()
+    } else {
+      const arrayBuffer = await file.arrayBuffer()
+      const zip = await JSZip.loadAsync(arrayBuffer)
 
-    if (!kmlFileEntry) {
-      throw new Error('KMZ não contém nenhum arquivo KML interno.')
+      // Tenta encontrar o primeiro arquivo .kml dentro do KMZ
+      const kmlFileEntry = Object.values(zip.files).find((f) =>
+        f.name.toLowerCase().endsWith('.kml'),
+      )
+
+      if (!kmlFileEntry) {
+        throw new Error('KMZ não contém nenhum arquivo KML interno.')
+      }
+
+      kmlText = await kmlFileEntry.async('text')
     }
 
-    const kmlText = await kmlFileEntry.async('text')
     const { points, lines } = parseKmlCoordinates(kmlText)
 
     if (!map) return
@@ -229,7 +237,7 @@ async function handleFileChange(event: Event) {
     })
 
     if (!allCoords.length) {
-      error.value = 'Nenhuma coordenada encontrada dentro do KMZ.'
+      error.value = 'Nenhuma coordenada encontrada dentro do arquivo.'
       return
     }
 
@@ -238,7 +246,7 @@ async function handleFileChange(event: Event) {
     map.fitBounds(bounds, { padding: [30, 30] })
   } catch (e: any) {
     console.error(e)
-    error.value = e?.message || 'Erro ao processar o arquivo KMZ.'
+    error.value = e?.message || 'Erro ao processar o arquivo KMZ/KML.'
   } finally {
     loading.value = false
     // Limpa o valor do input para permitir selecionar o mesmo arquivo novamente
@@ -288,25 +296,25 @@ watch(
 <template>
   <section class="kmz-map">
     <header class="kmz-map__header">
-      <h2>Mapa (KMZ)</h2>
+      <h2>Mapa (KMZ / KML)</h2>
       <p>
-        Selecione um arquivo <strong>.kmz</strong> (por exemplo, exportado do QGIS
+        Selecione um arquivo <strong>.kmz</strong> ou <strong>.kml</strong> (por exemplo, exportado do QGIS
         ou do Google Earth) e os pontos/linhas serão exibidos no mapa.
       </p>
     </header>
 
     <div class="kmz-map__controls">
       <label class="kmz-map__file-label">
-        <span>Selecione o arquivo KMZ</span>
+        <span>Selecione o arquivo KMZ ou KML</span>
         <input
           type="file"
-          accept=".kmz"
+          accept=".kmz,.kml"
           class="kmz-map__file-input"
           @change="handleFileChange"
         />
       </label>
 
-      <span v-if="loading" class="kmz-map__status">Carregando KMZ...</span>
+      <span v-if="loading" class="kmz-map__status">Carregando arquivo...</span>
       <span v-if="error" class="kmz-map__error">{{ error }}</span>
     </div>
 
