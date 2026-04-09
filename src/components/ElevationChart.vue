@@ -25,6 +25,7 @@ const histogramPaddingRight = 30
 
 const smoothEnabled = ref<boolean>(false)
 const smoothWindow = ref<number>(5)
+const showOriginalReference = ref<boolean>(true)
 const bucketCount = ref<number>(5)
 const xScale = ref<number>(1)
 const yScale = ref<number>(1)
@@ -181,10 +182,9 @@ const yAxisTicks = computed<AxisTick[]>(() => {
   return ticks
 })
 
-const profileCoordinates = computed(() => {
+function buildProfileCoordinates(series: number[]) {
   const currentStats = stats.value
   const currentDistanceStats = distanceStats.value
-  const series = smoothedElevations.value
   const distanceSeries = distances.value
 
   if (!currentStats || !currentDistanceStats || !series.length) return []
@@ -200,10 +200,26 @@ const profileCoordinates = computed(() => {
 
     return { x, y }
   })
+}
+
+const rawProfileCoordinates = computed(() => {
+  return buildProfileCoordinates(elevations.value)
+})
+
+const profileCoordinates = computed(() => {
+  return buildProfileCoordinates(smoothedElevations.value)
+})
+
+const rawProfileLinePoints = computed(() => {
+  return rawProfileCoordinates.value.map((point) => `${point.x},${point.y}`).join(' ')
 })
 
 const profileLinePoints = computed(() => {
   return profileCoordinates.value.map((point) => `${point.x},${point.y}`).join(' ')
+})
+
+const showOriginalReferenceLine = computed(() => {
+  return smoothEnabled.value && showOriginalReference.value && rawProfileLinePoints.value.length > 0
 })
 
 const profileAreaPoints = computed(() => {
@@ -465,6 +481,11 @@ async function exportHistogramAsPng() {
         />
       </label>
 
+      <label v-if="smoothEnabled" class="elevation-chart__control">
+        <input v-model="showOriginalReference" type="checkbox" />
+        Mostrar linha original pontilhada
+      </label>
+
       <label class="elevation-chart__control">
         Divisões de elevação: {{ bucketCount }}
         <input
@@ -610,6 +631,27 @@ async function exportHistogramAsPng() {
           Elevação (m)
         </text>
 
+        <!-- Área sob a curva -->
+        <polygon
+          v-if="profileAreaPoints"
+          :points="profileAreaPoints"
+          fill="url(#elevation-gradient)"
+          opacity="0.9"
+        />
+
+        <!-- Referência da série original -->
+        <polyline
+          v-if="showOriginalReferenceLine"
+          :points="rawProfileLinePoints"
+          fill="none"
+          stroke="#cbd5e1"
+          stroke-width="1.5"
+          stroke-dasharray="5 5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          opacity="0.75"
+        />
+
         <!-- Linha de perfil -->
         <polyline
           :points="profileLinePoints"
@@ -618,14 +660,6 @@ async function exportHistogramAsPng() {
           stroke-width="2.5"
           stroke-linecap="round"
           stroke-linejoin="round"
-        />
-
-        <!-- Área sob a curva -->
-        <polygon
-          v-if="profileAreaPoints"
-          :points="profileAreaPoints"
-          fill="url(#elevation-gradient)"
-          opacity="0.9"
         />
       </svg>
     </div>
