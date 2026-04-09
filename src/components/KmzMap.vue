@@ -24,6 +24,17 @@ const props = defineProps<{
   profileCoordinates?: LatLng[]
 }>()
 
+type KmzPointForEmit = {
+  id: number
+  name: string
+  lat: number
+  lng: number
+}
+
+const emit = defineEmits<{
+  (e: 'update:kmzPoints', points: KmzPointForEmit[]): void
+}>()
+
 const mapContainer = ref<HTMLDivElement | null>(null)
 let map: LeafletMap | null = null
 let markers: Marker[] = []
@@ -65,6 +76,7 @@ function clearLayers() {
   markers = []
   polylines = []
   kmzPoints.value = []
+  emit('update:kmzPoints', [])
 }
 
 function updateProfilePolyline() {
@@ -215,6 +227,16 @@ async function handleFileChange(event: Event) {
       unidadeGeologica: '',
       mergulho: '',
     }))
+
+    emit(
+      'update:kmzPoints',
+      kmzPoints.value.map((p) => ({
+        id: p.id,
+        name: p.name,
+        lat: p.lat,
+        lng: p.lng,
+      })),
+    )
 
     // Adiciona marcadores para pontos
     points.forEach(({ lat, lng, name }) => {
