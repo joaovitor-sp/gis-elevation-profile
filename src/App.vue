@@ -1,24 +1,29 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import ElevationInput from './components/ElevationInput.vue'
 import ElevationChart from './components/ElevationChart.vue'
 import KmzMap from './components/KmzMap.vue'
 import ImageMetadataMap from './components/ImageMetadataMap.vue'
-
-type LatLng = {
-  lat: number
-  lng: number
-}
-
-type ProfilePoint = {
-  distanceMeters: number
-  latitudeMeters: number
-  longitudeMeters: number
-  elevationMeters: number
-}
+import type {
+  ImportedKmzPoint,
+  KmzMarkerOnProfile,
+  LatLng,
+  ProfilePoint,
+} from './types/profile'
+import { projectKmzPointsOntoProfile } from './utils/profileMarkers'
 
 const profilePoints = ref<ProfilePoint[]>([])
 const profileCoordinates = ref<LatLng[]>([])
+
+const kmzPoints = ref<ImportedKmzPoint[]>([])
+
+const kmzMarkersOnProfile = computed<KmzMarkerOnProfile[]>(() => {
+  return projectKmzPointsOntoProfile(
+    kmzPoints.value,
+    profilePoints.value,
+    profileCoordinates.value,
+  )
+})
 
 type View = 'profile' | 'images'
 const currentView = ref<View>('profile')
@@ -29,6 +34,10 @@ function handleUpdateElevations(values: ProfilePoint[]) {
 
 function handleUpdateCoordinates(coords: LatLng[]) {
   profileCoordinates.value = coords
+}
+
+function handleUpdateKmzPoints(points: ImportedKmzPoint[]) {
+  kmzPoints.value = points
 }
 </script>
 
@@ -58,8 +67,14 @@ function handleUpdateCoordinates(coords: LatLng[]) {
         @update:elevations="handleUpdateElevations"
         @update:coordinates="handleUpdateCoordinates"
       />
-      <ElevationChart :profile-points="profilePoints" />
-      <KmzMap :profile-coordinates="profileCoordinates" />
+      <ElevationChart
+        :profile-points="profilePoints"
+        :kmz-markers="kmzMarkersOnProfile"
+      />
+      <KmzMap
+        :profile-coordinates="profileCoordinates"
+        @update:kmzPoints="handleUpdateKmzPoints"
+      />
     </section>
 
     <section v-else class="app__section">

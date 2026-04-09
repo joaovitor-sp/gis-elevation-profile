@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-
-type ProfilePoint = {
-  distanceMeters: number
-  latitudeMeters: number
-  longitudeMeters: number
-  elevationMeters: number
-}
+import type { KmzMarkerOnProfile, ProfilePoint } from '../types/profile'
 
 const props = defineProps<{
   profilePoints: ProfilePoint[]
+  kmzMarkers?: KmzMarkerOnProfile[]
 }>()
 
 // Configuração de visualização
@@ -28,6 +23,7 @@ const smoothWindow = ref<number>(5)
 const bucketCount = ref<number>(5)
 const xScale = ref<number>(1)
 const yScale = ref<number>(1)
+const showKmzMarkers = ref<boolean>(false)
 
 const svgWidth = computed(() => Math.round(width * xScale.value))
 const svgHeight = computed(() => Math.round(height * yScale.value))
@@ -199,6 +195,60 @@ const profileCoordinates = computed(() => {
     const y = padding + ((currentStats.max - elevation) / currentStats.range) * innerHeight
 
     return { x, y }
+  })
+})
+
+type KmzMarkerOnProfilePosition = {
+  id: number
+  name: string
+  distanceMeters: number
+  lat: number
+  lng: number
+  x: number
+  y: number
+}
+
+const kmzMarkerPositions = computed<KmzMarkerOnProfilePosition[]>(() => {
+  const markers = props.kmzMarkers ?? []
+  const currentDistanceStats = distanceStats.value
+  const coords = profileCoordinates.value
+  const distanceSeries = distances.value
+
+  if (!markers.length || !currentDistanceStats || !coords.length) return []
+
+  const innerWidth = svgWidth.value - 2 * padding
+
+  return markers.map((marker) => {
+    let bestIndex = 0
+    let bestDiff = Number.POSITIVE_INFINITY
+
+    for (let i = 0; i < distanceSeries.length; i++) {
+      const d = distanceSeries[i]!
+      const diff = Math.abs(d - marker.distanceMeters)
+      if (diff < bestDiff) {
+        bestDiff = diff
+        bestIndex = i
+      }
+    }
+
+    const coord = coords[bestIndex]
+
+    const x = coord
+      ? coord.x
+      : padding +
+        ((marker.distanceMeters - currentDistanceStats.min) / currentDistanceStats.range) *
+          innerWidth
+    const y = coord ? coord.y : svgHeight.value - padding
+
+    return {
+      id: marker.id,
+      name: marker.name,
+      distanceMeters: marker.distanceMeters,
+      lat: marker.lat,
+      lng: marker.lng,
+      x,
+      y,
+    }
   })
 })
 
@@ -498,6 +548,11 @@ async function exportHistogramAsPng() {
         />
       </label>
 
+      <label v-if="(kmzMarkers?.length ?? 0) > 0" class="elevation-chart__control">
+        <input v-model="showKmzMarkers" type="checkbox" />
+        Mostrar pontos do KMZ no perfil
+      </label>
+
       <button
         type="button"
         class="elevation-chart__export-button"
@@ -627,6 +682,30 @@ async function exportHistogramAsPng() {
           fill="url(#elevation-gradient)"
           opacity="0.9"
         />
+
+        <!-- Marcadores dos pontos do KMZ projetados no perfil -->
+        <g v-if="showKmzMarkers && kmzMarkerPositions.length">
+          <g v-for="marker in kmzMarkerPositions" :key="marker.id">
+            <line
+              :x1="marker.x"
+              :y1="marker.y - 10"
+              :x2="marker.x"
+              :y2="marker.y + 10"
+              stroke="#f97316"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              opacity="0.9"
+            />
+            <circle
+              :cx="marker.x"
+              :cy="marker.y"
+              r="3.5"
+              fill="#f97316"
+              stroke="#111827"
+              stroke-width="1"
+            />
+          </g>
+        </g>
       </svg>
     </div>
 
