@@ -1,18 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-
-type ProfilePoint = {
-  distanceMeters: number
-  latitudeMeters: number
-  longitudeMeters: number
-  elevationMeters: number
-}
 import proj4 from 'proj4'
-
-type LatLng = {
-  lat: number
-  lng: number
-}
+import type { LatLng, ProfilePoint } from '../types/profile'
 
 // Ajuste aqui para a zona/hemisfério UTM do seu projeto
 // Exemplo: SIRGAS 2000 / UTM zone 23S (sul do Brasil)

@@ -2,37 +2,16 @@
 import { onMounted, onBeforeUnmount, ref, watch, computed } from 'vue'
 import L, { Map as LeafletMap, Marker, Polyline } from 'leaflet'
 import JSZip from 'jszip'
+import type { ImportedKmzPoint, KmzTablePoint, LatLng } from '../types/profile'
 
 import 'leaflet/dist/leaflet.css'
-
-type LatLng = {
-  lat: number
-  lng: number
-}
-
-type KmzPoint = {
-  id: number
-  name: string
-  lat: number
-  lng: number
-  litologia: string
-  unidadeGeologica: string
-  mergulho: string
-}
 
 const props = defineProps<{
   profileCoordinates?: LatLng[]
 }>()
 
-type KmzPointForEmit = {
-  id: number
-  name: string
-  lat: number
-  lng: number
-}
-
 const emit = defineEmits<{
-  (e: 'update:kmzPoints', points: KmzPointForEmit[]): void
+  (e: 'update:kmzPoints', points: ImportedKmzPoint[]): void
 }>()
 
 const mapContainer = ref<HTMLDivElement | null>(null)
@@ -49,7 +28,7 @@ const kmzPointIcon = L.divIcon({
 
 const loading = ref(false)
 const error = ref<string | null>(null)
-const kmzPoints = ref<KmzPoint[]>([])
+const kmzPoints = ref<KmzTablePoint[]>([])
 
 const litologiaOptions = computed(() => {
   const set = new Set<string>()

@@ -1,79 +1,28 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import ElevationInput from './components/ElevationInput.vue'
 import ElevationChart from './components/ElevationChart.vue'
 import KmzMap from './components/KmzMap.vue'
 import ImageMetadataMap from './components/ImageMetadataMap.vue'
-
-type LatLng = {
-  lat: number
-  lng: number
-}
-
-type ProfilePoint = {
-  distanceMeters: number
-  latitudeMeters: number
-  longitudeMeters: number
-  elevationMeters: number
-}
+import type {
+  ImportedKmzPoint,
+  KmzMarkerOnProfile,
+  LatLng,
+  ProfilePoint,
+} from './types/profile'
+import { projectKmzPointsOntoProfile } from './utils/profileMarkers'
 
 const profilePoints = ref<ProfilePoint[]>([])
 const profileCoordinates = ref<LatLng[]>([])
 
-type KmzPointForEmit = {
-  id: number
-  name: string
-  lat: number
-  lng: number
-}
-
-type KmzMarkerOnProfile = {
-  id: number
-  name: string
-  distanceMeters: number
-  lat: number
-  lng: number
-}
-
-const kmzPoints = ref<KmzPointForEmit[]>([])
+const kmzPoints = ref<ImportedKmzPoint[]>([])
 
 const kmzMarkersOnProfile = computed<KmzMarkerOnProfile[]>(() => {
-  if (!profilePoints.value.length || !profileCoordinates.value.length || !kmzPoints.value.length) {
-    return []
-  }
-
-  const coords = profileCoordinates.value
-  const profile = profilePoints.value
-
-  return kmzPoints.value
-    .map((point) => {
-      let bestIndex = -1
-      let bestDistSq = Number.POSITIVE_INFINITY
-
-      for (let i = 0; i < coords.length; i++) {
-        const c = coords[i]!
-        const dx = c.lat - point.lat
-        const dy = c.lng - point.lng
-        const d2 = dx * dx + dy * dy
-        if (d2 < bestDistSq) {
-          bestDistSq = d2
-          bestIndex = i
-        }
-      }
-
-      if (bestIndex === -1 || !profile[bestIndex]) {
-        return null
-      }
-
-      return {
-        id: point.id,
-        name: point.name,
-        distanceMeters: profile[bestIndex]!.distanceMeters,
-        lat: point.lat,
-        lng: point.lng,
-      }
-    })
-    .filter((m): m is KmzMarkerOnProfile => m !== null)
+  return projectKmzPointsOntoProfile(
+    kmzPoints.value,
+    profilePoints.value,
+    profileCoordinates.value,
+  )
 })
 
 type View = 'profile' | 'images'
@@ -87,7 +36,7 @@ function handleUpdateCoordinates(coords: LatLng[]) {
   profileCoordinates.value = coords
 }
 
-function handleUpdateKmzPoints(points: KmzPointForEmit[]) {
+function handleUpdateKmzPoints(points: ImportedKmzPoint[]) {
   kmzPoints.value = points
 }
 </script>

@@ -1,22 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-
-type ProfilePoint = {
-  distanceMeters: number
-  latitudeMeters: number
-  longitudeMeters: number
-  elevationMeters: number
-}
+import type { KmzMarkerOnProfile, ProfilePoint } from '../types/profile'
 
 const props = defineProps<{
   profilePoints: ProfilePoint[]
-  kmzMarkers?: {
-    id: number
-    name: string
-    distanceMeters: number
-    lat: number
-    lng: number
-  }[]
+  kmzMarkers?: KmzMarkerOnProfile[]
 }>()
 
 // Configuração de visualização
