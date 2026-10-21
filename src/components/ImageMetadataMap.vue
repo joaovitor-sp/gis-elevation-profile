@@ -65,10 +65,10 @@ function extractTitleFromExif(meta: any): string | null {
   return title
 }
 
-// Usa exatamente a terceira linha, preservando linhas vazias anteriores.
+// Usa exatamente a segunda linha, preservando linhas vazias anteriores.
 function extractCodeFromTitle(title: string): string | null {
-  const thirdLine = title.split(/\r\n|\n|\r/)[2]?.trim()
-  return thirdLine || null
+  const secondLine = title.split(/\r\n|\n|\r/)[1]?.trim()
+  return secondLine || null
 }
 
 function extractLatLngFromExif(meta: any): { lat?: number; lng?: number } {
@@ -365,23 +365,23 @@ onBeforeUnmount(() => {
       <p class="img-map__example">
         Exemplo de título em 3 linhas:<br />
         Trecho BR-135<br />
-        Mapeamento geológico (DNIT L3 - OS-40A)<br />
-        <strong>P36 LE</strong>
+        <strong>P36 LE</strong><br />
+        Mapeamento geológico (DNIT L3 - OS-40A)
       </p>
 
       <ul class="img-map__rules">
         <li>
-          Apenas a <strong>terceira linha</strong> do título (ex.: <strong>P36 LE</strong>)
+          Apenas a <strong>segunda linha</strong> do título (ex.: <strong>P36 LE</strong>)
           é usada como <strong>código do ponto</strong>.
         </li>
         <li>
-          Todas as imagens com o <strong>mesmo código na terceira linha</strong> são
+          Todas as imagens com o <strong>mesmo código na segunda linha</strong> são
           agrupadas em <strong>um único marcador</strong> no mapa.
         </li>
         <li>
-          Imagens <strong>sem título ou sem a terceira linha preenchida</strong>
+          Imagens <strong>sem título ou sem a segunda linha preenchida</strong>
           não entram nos pontos e são listadas abaixo para revisão.
-          Linhas vazias também contam na posição da terceira linha.
+          Linhas vazias também contam na posição da segunda linha.
         </li>
         <li>
           Se o título ou os metadados contiverem a palavra
@@ -430,7 +430,7 @@ onBeforeUnmount(() => {
     <section v-if="unidentifiedImages.length" class="img-map__summary" role="status">
       <p>
         Sem identificação: <strong>{{ unidentifiedImages.length }}</strong>
-        imagem(ns). Confira o título nos metadados e preencha a terceira linha:
+        imagem(ns). Confira o título nos metadados e preencha a segunda linha:
       </p>
       <ul>
         <li v-for="(name, index) in unidentifiedImages" :key="index">{{ name }}</li>
