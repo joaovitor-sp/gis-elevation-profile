@@ -37,6 +37,7 @@ const error = ref<string | null>(null)
 
 const allImages = ref<ImageMetadata[]>([])
 const points = ref<ImagePoint[]>([])
+const unidentifiedImages = ref<string[]>([])
 
 const mapContainer = ref<HTMLDivElement | null>(null)
 let map: LeafletMap | null = null
@@ -58,22 +59,16 @@ function extractTitleFromExif(meta: any): string | null {
     meta?.ImageDescription || meta?.XPTitle || meta?.ObjectName || meta?.Title
 
   const title =
-    typeof rawTitle === 'string' ? rawTitle.trim() : String(rawTitle ?? '').trim()
+    typeof rawTitle === 'string' ? rawTitle : String(rawTitle ?? '')
 
-  if (!title) return null
+  if (!title.trim()) return null
   return title
 }
 
-// Pega a última linha não vazia do título (ex.: "P36 LE")
+// Usa exatamente a terceira linha, preservando linhas vazias anteriores.
 function extractCodeFromTitle(title: string): string | null {
-  const lines = title
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-
-  if (!lines.length) return null
-  const last = lines[lines.length - 1]!
-  return last || null
+  const thirdLine = title.split(/\r\n|\n|\r/)[2]?.trim()
+  return thirdLine || null
 }
 
 function extractLatLngFromExif(meta: any): { lat?: number; lng?: number } {
@@ -103,6 +98,7 @@ async function handleFilesSelected(event: Event) {
   error.value = null
   allImages.value = []
   points.value = []
+  unidentifiedImages.value = []
   clearMarkers()
 
   if (!files || !files.length) return
@@ -125,11 +121,11 @@ async function handleFilesSelected(event: Event) {
 
         const title = extractTitleFromExif(meta)
 
-        // Ignora imagens sem título
-        if (!title) continue
-
-        const code = extractCodeFromTitle(title)
-        if (!code) continue
+        const code = title ? extractCodeFromTitle(title) : null
+        if (!title || !code) {
+          unidentifiedImages.value.push(file.name)
+          continue
+        }
 
         const { lat, lng } = extractLatLngFromExif(meta)
         const isCondemned = detectCondemned(title, meta)
@@ -375,16 +371,17 @@ onBeforeUnmount(() => {
 
       <ul class="img-map__rules">
         <li>
-          Apenas a <strong>última linha</strong> do título (ex.: <strong>P36 LE</strong>)
+          Apenas a <strong>terceira linha</strong> do título (ex.: <strong>P36 LE</strong>)
           é usada como <strong>código do ponto</strong>.
         </li>
         <li>
-          Todas as imagens com o <strong>mesmo código final</strong> são
+          Todas as imagens com o <strong>mesmo código na terceira linha</strong> são
           agrupadas em <strong>um único marcador</strong> no mapa.
         </li>
         <li>
-          Imagens <strong>sem título</strong> são ignoradas e não entram na
-          contagem nem na lista.
+          Imagens <strong>sem título ou sem a terceira linha preenchida</strong>
+          não entram nos pontos e são listadas abaixo para revisão.
+          Linhas vazias também contam na posição da terceira linha.
         </li>
         <li>
           Se o título ou os metadados contiverem a palavra
@@ -428,6 +425,16 @@ onBeforeUnmount(() => {
         consideradas: <strong>{{ totalImages }}</strong> · Imagens condenadas:
         <strong>{{ totalCondemnedImages }}</strong>
       </p>
+    </section>
+
+    <section v-if="unidentifiedImages.length" class="img-map__summary" role="status">
+      <p>
+        Sem identificação: <strong>{{ unidentifiedImages.length }}</strong>
+        imagem(ns). Confira o título nos metadados e preencha a terceira linha:
+      </p>
+      <ul>
+        <li v-for="(name, index) in unidentifiedImages" :key="index">{{ name }}</li>
+      </ul>
     </section>
 
     <div class="img-map__layout">
